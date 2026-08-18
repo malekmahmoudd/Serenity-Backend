@@ -35,4 +35,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s \
     urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",8000)}/health', timeout=5)" || exit 1
 
 # Start FastAPI app with uvicorn, binding to $PORT
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py"]
