@@ -1,0 +1,31 @@
+# Secrets -- never committed, ever.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+venv/
+venv_slim_test/
+*.egg-info/
+
+# The database. Contains encrypted user conversations -- even encrypted, this
+# has no business in git history, which is permanent and often mirrored.
+serenity.db
+serenity.db-journal
+*.db
+
+# Model artifacts: only the training-only Keras file is excluded here.
+#
+# model_v5.onnx, tokenizer.json, calibrators.pkl and the small JSON configs
+# ARE committed -- Render's native Python deploy (no Docker, no HF-style
+# drag-and-drop upload) builds straight from what git has, so the serving
+# artifacts have to actually be in the repo. ~45MB in a private repo is a
+# non-issue. model_v5.keras (75MB, TensorFlow-only, never used in production
+# since classifier.py serves ONNX) is the one file still excluded.
+artifacts/model_v5.keras
+
+# Test artifacts, if anyone runs pytest --cov here later
+.coverage
+htmlcov/

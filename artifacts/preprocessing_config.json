@@ -1,0 +1,13 @@
+{
+  "cleaning_version": "1.0.0",
+  "num_words": 30000,
+  "effective_vocab": 30000,
+  "oov_token": "<OOV>",
+  "maxlen": 256,
+  "padding": "post",
+  "truncating": "post",
+  "output": "sigmoid_logits",
+  "threshold_space": "calibrated",
+  "max_turns": 4,
+  "ambiguous_tokens": 100
+}

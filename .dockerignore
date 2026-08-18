@@ -1,0 +1,32 @@
+# Everything here is either dev-only, secret, or regenerable -- none of it
+# belongs in a container someone else's platform builds and runs.
+
+venv/
+venv_slim_test/
+__pycache__/
+*.pyc
+
+.env
+.env.*
+!.env.example
+
+serenity.db
+serenity.db-journal
+*.db
+
+# Training/export-only. This image never installs TensorFlow, so it could
+# not run these even if they were present -- keeping them out also keeps the
+# build context (and therefore the upload to HF Spaces) small.
+export_onnx.py
+requirements.txt
+artifacts/model_v5.keras
+
+# Tests -- run in CI (.github/workflows/backend-tests.yml), not shipped.
+test_*.py
+run_tests.py
+verify_slim_boot.py
+estimate_capacity.py
+
+.git/
+.gitignore
+ESCALATION_POLICY.md

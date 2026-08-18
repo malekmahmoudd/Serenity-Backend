@@ -1,0 +1,22 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.0
+
+SQLAlchemy>=2.0
+cryptography>=42.0
+psycopg[binary]>=3.1        # Postgres driver -- required in production (see config.py)
+
+# Model serving ONLY. No tensorflow, no tf2onnx -- those are training/export
+# time tools (see export_onnx.py) and have no business in the deployed image.
+# This is the actual point of task 10: not just "avoid importing TF at
+# runtime" but "never pay the ~600MB install/pull cost in production at all."
+onnxruntime>=1.17
+numpy>=1.24,<2.2
+# Pinned, not >=. Verified live: unpickling calibrators.pkl (fit under
+# 1.6.1) with 1.9.0 installed produced an InconsistentVersionWarning. It still
+# ran and produced plausible scores, but "still ran" is not the same as
+# "produced numerically identical calibrated probabilities" -- isotonic
+# regression's internal representation isn't guaranteed stable across sklearn
+# releases. Pin to the version the calibrators were actually fit under.
+scikit-learn==1.6.1
+python-dotenv>=1.0

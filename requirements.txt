@@ -1,0 +1,16 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.0
+
+# Persistence. SQLite needs nothing extra; psycopg only when you point
+# DATABASE_URL at Postgres.
+SQLAlchemy>=2.0
+cryptography>=42.0        # Fernet, for message text at rest
+# psycopg[binary]>=3.1    # uncomment for Postgres (Neon, Supabase, RDS)
+
+# Classifier. TensorFlow is the heavy one (~600MB) and is only needed to load
+# model_v5.keras. If startup time or image size becomes a problem later, export
+# the model to ONNX and swap this for onnxruntime (~15MB, faster on CPU).
+tensorflow-cpu>=2.15,<2.20
+numpy>=1.24,<2.2
+scikit-learn>=1.3        # unpickles the isotonic calibrators

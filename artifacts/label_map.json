@@ -1,0 +1,28 @@
+{
+  "label_to_id": {
+    "adhd": 0,
+    "anxiety": 1,
+    "autism": 2,
+    "bipolar": 3,
+    "bpd": 4,
+    "depression": 5,
+    "ocd": 6,
+    "ptsd": 7,
+    "schizophrenia": 8,
+    "suicidal": 9
+  },
+  "id_to_label": {
+    "0": "adhd",
+    "1": "anxiety",
+    "2": "autism",
+    "3": "bipolar",
+    "4": "bpd",
+    "5": "depression",
+    "6": "ocd",
+    "7": "ptsd",
+    "8": "schizophrenia",
+    "9": "suicidal"
+  },
+  "cleaning_version": "1.0.0",
+  "multi_label": true
+}

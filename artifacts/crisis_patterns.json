@@ -1,0 +1,9 @@
+{
+  "explicit": "kill(ing)?\\s+(my\\s?self|meself)|end(ing)?\\s+(my\\s+life|it\\s+all)|take\\s+my\\s+own\\s+life|commit\\s+suicide|suicid(e|al)|\\bkms\\b|\\bktms\\b|unalive",
+  "burden": "better\\s+off\\s+(with\\s?out\\s+me|dead|if\\s+i\\s+(was|were)\\s+(gone|dead))|everyone\\s+would\\s+be\\s+better|(they|world)\\s+would\\s+be\\s+better|burden\\s+(to|on)\\s+(everyone|them|my)|(no\\s?one|nobody)\\s+would\\s+(\\w+\\s+){0,2}(miss|notice|care)|if\\s+i\\s+(was|were)\\s+(gone|not\\s+here|dead)|(carry\\s+on|go\\s+on|manage|be\\s+fine|do\\s+fine)\\s+(just\\s+)?fine\\s+without\\s+me|(carry\\s+on|go\\s+on|manage)\\s+without\\s+me|they'?d\\s+(manage|be\\s+fine|cope)",
+  "no_point": "(no|what'?s\\s+the)\\s+point\\s+(in|to|of)?\\s*(it|anything|living|life|going\\s+on|trying|anymore)|don'?t\\s+see\\s+the\\s+point|nothing\\s+(left|to\\s+live\\s+for)|no\\s+(reason|future)\\s+(to\\s+live|left)|why\\s+(bother|keep\\s+going)",
+  "not_here": "(don'?t|do\\s+not)\\s+want\\s+to\\s+(be\\s+here|exist|live|wake\\s+up|be\\s+alive)|wish\\s+i\\s+(was|were)\\s+(dead|gone|never\\s+born)|want\\s+to\\s+(die|disappear|not\\s+exist)|ready\\s+to\\s+(go|give\\s+up)|hope\\s+i\\s+don'?t\\s+wake",
+  "exhausted": "can'?t\\s+(do\\s+this|take\\s+it|keep\\s+going|go\\s+on)(\\s+(anymore|any\\s+longer|like\\s+this))?\\s*(?=[.,!?;]|$)|tired\\s+of\\s+(living|being\\s+alive|existing|fighting)|giving?\\s+up\\s+on\\s+(life|everything)|at\\s+the\\s+end\\s+of\\s+my\\s+rope",
+  "self_harm": "hurt(ing)?\\s+my\\s?self|self[\\s-]?harm|cutting\\s+my\\s?self|\\bod\\b\\s+on|overdos(e|ing)",
+  "plan": "(wrote|writing|written)\\s+(a\\s+)?(note|letter)\\s+to|saying\\s+good\\s?bye|last\\s+(message|post|night\\s+alive)|have\\s+a\\s+plan|made\\s+my\\s+decision"
+}

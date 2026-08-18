@@ -1,0 +1,25 @@
+{
+  "cleaning_version": "1.0.0",
+  "seed": 42,
+  "rows_raw": 1055629,
+  "class_counts_raw": {
+    "bpd": 236520,
+    "anxiety": 228440,
+    "depression": 220400,
+    "normal": 94817,
+    "bipolar": 73123,
+    "ocd": 47168,
+    "adhd": 46962,
+    "suicidal": 41256,
+    "ptsd": 30133,
+    "autism": 24105,
+    "schizophrenia": 12705
+  },
+  "multi_label_rows": 1659,
+  "rows_clean": 853218,
+  "n_negatives": 32796,
+  "metrics": {
+    "macro_f1": 0.7285234317530472,
+    "coverage": 0.8938257424814233
+  }
+}
