@@ -35,6 +35,7 @@ if not PY.exists():
 TEST_FILES = [
     "test_decision.py",       # pure logic, no I/O -- the safety-critical core
     "test_signal_floor.py",   # the "hi" bug and its fix
+    "test_informational.py",  # "tel me about ptsd symptoms" -> trauma probe
     "test_ratelimit.py",
     "test_auth.py",
     "test_persistence.py",

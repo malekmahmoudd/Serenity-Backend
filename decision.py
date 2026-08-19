@@ -49,6 +49,7 @@ score has quietly replaced "help this person" with "satisfy the classifier".
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -86,6 +87,80 @@ CRISIS_WINDOW = 2             # how many recent turns the crisis rule sees
 # via more conversation, not via a label on turn one.
 SITUATIONAL_GRACE_TURNS = 3
 
+# ---------------------------------------------------------------------------
+# ASKING FOR INFORMATION IS NOT THE SAME AS DISCLOSING
+# ---------------------------------------------------------------------------
+# Reported failure: "tell me about ptsd symptoms" came back with a short answer
+# and then "What does it look like when it's at its worst?" -- a request to
+# narrate trauma, aimed at someone who had asked a library question.
+#
+# SIGNAL_FLOOR already covers the no-signal case ("hi"). It cannot cover this
+# one: naming a condition gives the classifier a real, above-floor signal, so
+# has_signal stays true and the canned question gets recited. The missing
+# distinction is not how much signal there is, but whether the person is
+# talking about THEMSELVES.
+#
+# The test is deliberately asymmetric, because the two error directions are not
+# equally bad. Mistaking a disclosure for a question would drop support from
+# someone who needs it. Mistaking a question for a disclosure just reproduces
+# today's behaviour. So this fires only on an explicit information request with
+# no first-person experience anywhere in the message; anything ambiguous falls
+# through to the normal path.
+#
+# Typo tolerance is not a nicety here. The message that prompted this fix was
+# "tel me about ptsd symptoms" -- one dropped letter. People type badly when
+# they are upset, and a gate that only fires on correct spelling would have
+# missed the exact case it was written for.
+_INFO_REQUEST = re.compile(
+    r"\b("
+    r"what (is|are|causes?|does|do)\b"
+    r"|what'?s\b"
+    r"|(can you )?tel{1,2} me( more)?( about| what)?\b"
+    r"|explain\b"
+    r"|define\b"
+    r"|(symptoms?|sympto?ms?|signs?|causes?|types?|kinds?|effects?|"
+    r"treatments?) (of|for)\b"
+    r"|difference between\b"
+    r"|how (do|does|can) (you|i|one|someone|people) (know|tell|diagnose)\b"
+    r"|is .* a (symptom|sign|type|kind) of\b"
+    r"|(info|information) (on|about)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+# First-person experience, not bare pronouns: "how do i know if x is a symptom"
+# is still a library question and must not match here.
+_FIRST_PERSON_EXPERIENCE = re.compile(
+    r"\b(i|we)\s*('m|’m|m|ve|'ve|’ve|d|'d|’d)?\s*"
+    r"(feel|felt|feeling|am|was|were|been|have been|having|get|got|getting|"
+    r"keep|kept|can'?t|cannot|couldn'?t|struggle|struggling|struggled|"
+    r"suffer|suffering|experience|experiencing|think|thought|worry|worried|"
+    r"cry|crying|panic|panicking|hurt|hurting|need|want|hate|fear|scared|"
+    r"tired|exhausted|numb|lost|alone|anxious|depressed|angry|sad)\b"
+    r"|\bmy\s+(anxiety|depression|ptsd|ocd|adhd|bipolar|bpd|autism|mood|"
+    r"sleep|panic|trauma|flashbacks?|therapist|meds|medication|head|mind|"
+    r"brain|life|partner|mum|mom|dad|family|job|work)\b"
+    r"|\b(happened|happens) to me\b"
+    r"|\bi\b.*\b(diagnosed|diagnosis)\b",
+    re.IGNORECASE,
+)
+
+
+def informational_request(latest: str) -> bool:
+    """
+    True when this turn is a request for general information rather than the
+    person talking about their own experience.
+
+    Callers must run the safety check FIRST. "what are the signs someone is
+    suicidal" is an information request by this test, and it is still a
+    conversation where crisis routing takes precedence.
+    """
+    if not latest or not latest.strip():
+        return False
+    if _FIRST_PERSON_EXPERIENCE.search(latest):
+        return False
+    return bool(_INFO_REQUEST.search(latest))
+
 
 @dataclass
 class Decision:
@@ -105,6 +180,9 @@ class Decision:
     # classifier signal. False means it's grounded in a class that cleared or
     # nearly cleared threshold, and should actually shape the reply.
     question_optional: bool = False
+    # This turn asked for general information rather than describing anything
+    # personal. Answer it; do not turn it into an elicitation opportunity.
+    informational: bool = False
 
     def to_state(self) -> dict:
         """
@@ -140,7 +218,10 @@ class Decision:
             # present the LLM must respond to the EVENT, not to a category.
             "context": {"situational_causes": self.situational},
             "conversation": {"turn": self.turn,
-                             "evidence_tokens": self.evidence_tokens},
+                             "evidence_tokens": self.evidence_tokens,
+                             # True -> the person asked for information, not
+                             # support. Answer them; do not ask how they feel.
+                             "informational_request": self.informational},
             "decision": {"action": self.action, "reason": self.reason},
         }
 
@@ -268,6 +349,19 @@ def decide(accumulated: str, latest: str, turn: int,
         return Decision(action="SAFETY", crisis_patterns=hits, turn=turn,
                         evidence_tokens=n_tok, crisis_earlier=crisis_flagged,
                         reason="crisis language detected by rule")
+
+    # 1b. They asked a question ABOUT something, not about themselves. Answer
+    #     it. Classifying a library question produces a category the person
+    #     never claimed, and appending a follow-up turns "what are the
+    #     symptoms" into "describe your worst moment" -- which is what was
+    #     reported. Deliberately after safety and before classification: crisis
+    #     routing still wins, and nothing here is scored.
+    if informational_request(latest):
+        return Decision(action="ASK", question=None, question_optional=True,
+                        informational=True, turn=turn, evidence_tokens=n_tok,
+                        crisis_earlier=crisis_flagged,
+                        reason="information request -- answer it without a "
+                               "personal follow-up")
 
     # 2. No model? Degrade to conversation rather than failing the request.
     if not classifier.available():

@@ -82,20 +82,27 @@ classifier behind you is right roughly half the time on conversational input.
 2. Never contradict the safety signal. If crisis_signal is true: acknowledge, \
 express care, give the resources. Nothing else -- no advice, no questions, no \
 categories.
-3. If action is ASK: check classification.has_signal. If true, lead in with \
-one short sentence responding to what they actually said, then ask the \
-supplied question (verbatim or a light natural rewording -- keep its meaning \
-intact). If false, ignore the supplied question completely -- this is usually \
-a greeting or too little to go on, so just respond naturally to what they \
-wrote and ask something short, warm, and open instead. Never ask a clinical- \
-sounding question (mood, sleep, "what does it look like at its worst") when \
-there is nothing to go on yet.
-4. If evidence_sufficiency is "insufficient", mention no category at all.
-5. If context.situational_causes is non-empty, the person has named a real \
+3. If conversation.informational_request is true, they asked you ABOUT \
+something rather than about themselves. Answer the question plainly and \
+usefully in 2-4 sentences. Do NOT ask how they feel, do NOT ask them to \
+describe their own experience, and do NOT end with a follow-up question of \
+any kind. If they want to talk about themselves they will; wait to be invited. \
+You may close by noting you're here if they do want to talk, but only as a \
+statement, never as a question. This rule outranks rule 4 below.
+4. If action is ASK and informational_request is false: check \
+classification.has_signal. If true, lead in with one short sentence responding \
+to what they actually said, then ask the supplied question (verbatim or a \
+light natural rewording -- keep its meaning intact). If false, ignore the \
+supplied question completely -- this is usually a greeting or too little to go \
+on, so just respond naturally to what they wrote and ask something short, \
+warm, and open instead. Never ask a clinical-sounding question (mood, sleep, \
+"what does it look like at its worst") when there is nothing to go on yet.
+5. If evidence_sufficiency is "insufficient", mention no category at all.
+6. If context.situational_causes is non-empty, the person has named a real \
 event -- a death, a job loss, a breakup. Respond to THAT. Never suggest their \
 reaction to it might be a disorder. Grief is not a symptom.
-6. Plain warm language. No jargon, no lists, no headings, no emoji.
-7. If in_domain is false, say you are here for emotional support and ask what \
+7. Plain warm language. No jargon, no lists, no headings, no emoji.
+8. If in_domain is false, say you are here for emotional support and ask what \
 is on their mind.
 
 WHEN action IS "RESOLVE" (max 5 sentences)
@@ -131,6 +138,13 @@ FALLBACKS = {
                 "weighing on you most?"),
     "OOD": ("I'm here for emotional support rather than general questions — but "
             "if something's on your mind, I'm listening."),
+    # Information was asked for and the API that would answer it is down.
+    # Notably this does NOT ask them anything back.
+    "INFO_UNAVAILABLE": (
+        "I can't look that up properly just now — something on my end isn't "
+        "responding. For anything about symptoms or conditions, a GP or a site "
+        "like the NHS or Mind will be more reliable than me anyway. I'm here "
+        "if you want to talk."),
     "SAFETY": ("Thank you for telling me. What you're describing sounds "
                "genuinely painful, and you shouldn't have to sit with it "
                "alone.\n\n" + safety.CRISIS_RESOURCES),
@@ -165,6 +179,13 @@ def _phrase(labels: list) -> str:
 
 def _fallback(state: dict, question: str | None) -> str:
     action = state["decision"]["action"]
+    # Without the API there is nothing that can actually answer an information
+    # request, so say that plainly instead of substituting a personal question
+    # -- the template would otherwise reply to "what are the symptoms of ptsd"
+    # with "thank you for telling me that, what's been going on?".
+    if action == "ASK" and (state.get("conversation") or {}).get(
+            "informational_request", False):
+        return FALLBACKS["INFO_UNAVAILABLE"]
     text = FALLBACKS.get(action, FALLBACKS["ABSTAIN"])
     if action == "ASK":
         text = text.format(question=question or
@@ -218,8 +239,23 @@ def respond(state: dict, history: list, question: str | None = None) -> str:
         # discriminating question to recite when has_signal says it's grounded
         # in something real. Otherwise the model was reciting a clinical-
         # sounding fallback question onto plain small talk.
+        informational = (state.get("conversation") or {}).get(
+            "informational_request", False)
         has_signal = state["classification"].get("has_signal", True)
-        if has_signal and question:
+        if informational:
+            # They asked about a topic, not about themselves. Answering and
+            # then probing is what turned "tell me about ptsd symptoms" into
+            # "what does it look like at its worst".
+            parts.append(
+                "\nTHIS IS AN INFORMATION REQUEST, NOT A DISCLOSURE. Answer "
+                "the question they actually asked, plainly and accurately, in "
+                "2-4 sentences. Do NOT ask how they feel. Do NOT ask them to "
+                "describe their own experience. Do NOT end with a question of "
+                "any kind. You may end with a plain statement that you're "
+                "here if they want to talk, but it must not be phrased as a "
+                "question. Mention no category as applying to them -- they "
+                "have not claimed anything about themselves.")
+        elif has_signal and question:
             parts.append(
                 "\nEND YOUR REPLY WITH A QUESTION BASED ON THIS -- verbatim is "
                 "fine, or a light natural rewording, but keep its meaning "
