@@ -51,6 +51,10 @@ class Session:
     resolved_labels: list = field(default_factory=list)
     crisis_flagged: bool = False
     last_action: str = ""
+    # Follow-up questions already put to this person. Kept so the decision
+    # layer cannot ask the same one twice -- see decision.pick_question, which
+    # used to repeat itself when classifier scores reordered between turns.
+    asked_questions: list = field(default_factory=list)
 
     @property
     def accumulated(self) -> str:

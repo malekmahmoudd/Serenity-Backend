@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Sequence
 
 import classifier
 import safety
@@ -271,15 +271,28 @@ GENERIC_QUESTIONS = [
 ]
 
 
-def pick_question(scores: dict, turn: int) -> str:
+def pick_question(scores: dict, turn: int, asked: Sequence[str] = ()) -> str:
     """
     Choose by which pair is closest to TIED, not by which two score highest.
     A near-tie is the axis a question can actually resolve.
 
-    When the same pair remains closest across turns, do not repeat the same
-    question. Use the turn number to move through the available question
-    candidates deterministically, without introducing any new conversation
-    state or changing the existing decision architecture.
+    `asked` is the questions already put to this person. Skip them.
+
+    WHY ROTATING ON `turn` WAS NOT ENOUGH
+    -------------------------------------
+    The previous version indexed `candidates[(turn - 1) % len(candidates)]` and
+    claimed that stopped repeats. It does not. The candidate list is ordered by
+    how close each pair is to tied, so it REORDERS between turns as scores move.
+    Index 1 on turn 2 can be the same question index 0 returned on turn 1.
+
+    Observed live: a user got "when your mood shifts, does it usually follow
+    something happening with someone close to you, or does it come on by
+    itself?" twice in a row, having answered it the first time. Asking someone
+    the same question after they answered it reads as not listening, which is a
+    worse failure here than a slightly less discriminating question.
+
+    So repeats are now excluded explicitly, and `turn` only breaks ties among
+    what is left.
     """
     candidates = []
 
@@ -304,6 +317,17 @@ def pick_question(scores: dict, turn: int) -> str:
     # a question is not repeated when the same classifier pair remains tied.
     candidates.extend(GENERIC_QUESTIONS)
 
+    already = set(asked or ())
+    fresh = [q for q in candidates if q not in already]
+
+    if fresh:
+        # `turn` only varies the choice among questions not yet used; it can no
+        # longer land back on one that was.
+        return fresh[(turn - 1) % len(fresh)]
+
+    # Everything has been asked. MAX_TURNS caps the loop long before this is
+    # reachable in practice, but returning a repeat is still better than
+    # returning nothing, so fall back to the original rotation.
     if candidates:
         return candidates[(turn - 1) % len(candidates)]
 
@@ -313,7 +337,8 @@ def pick_question(scores: dict, turn: int) -> str:
 def decide(accumulated: str, latest: str, turn: int,
            prev_turn: Optional[str] = None,
            prev_fired: bool = False,
-           crisis_flagged: bool = False) -> Decision:
+           crisis_flagged: bool = False,
+           asked: Sequence[str] = ()) -> Decision:
     """
     accumulated    every user message so far, joined. What gets classified.
     latest         this turn's message.
@@ -324,6 +349,8 @@ def decide(accumulated: str, latest: str, turn: int,
                    disclosure would fire again on the following turn.
     crisis_flagged whether crisis fired earlier in this conversation. Used for
                    tone only -- it must not re-trigger the safety route.
+    asked          follow-up questions already put to this person, so the same
+                   one is not asked twice.
     """
     n_tok = token_count(accumulated)
 
@@ -369,7 +396,7 @@ def decide(accumulated: str, latest: str, turn: int,
             return Decision(action="ABSTAIN", turn=turn, evidence_tokens=n_tok,
                             crisis_earlier=crisis_flagged,
                             reason="classifier unavailable")
-        return Decision(action="ASK", question=pick_question({}, turn),
+        return Decision(action="ASK", question=pick_question({}, turn, asked),
                         question_optional=True,   # no model at all -> no signal
                         turn=turn, evidence_tokens=n_tok,
                         crisis_earlier=crisis_flagged,
@@ -390,7 +417,7 @@ def decide(accumulated: str, latest: str, turn: int,
     sit = situational.situational_check(accumulated)
     if hits_labels and sit and turn <= SITUATIONAL_GRACE_TURNS:
         return Decision(action="ASK", scores=scores,
-                        question=pick_question(scores, turn),
+                        question=pick_question(scores, turn, asked),
                         turn=turn, evidence_tokens=n_tok,
                         crisis_earlier=crisis_flagged,
                         situational=sit,
@@ -411,7 +438,7 @@ def decide(accumulated: str, latest: str, turn: int,
     #     confident-but-too-short turn from a genuinely unclear one.
     if hits_labels and n_tok < MIN_TOKENS_TO_RESOLVE:
         held = Decision(action="ASK", scores=scores,
-                        question=pick_question(scores, turn),
+                        question=pick_question(scores, turn, asked),
                         turn=turn, evidence_tokens=n_tok,
                         crisis_earlier=crisis_flagged,
                         reason=f"{hits_labels[0]} above threshold but only "
@@ -425,7 +452,7 @@ def decide(accumulated: str, latest: str, turn: int,
     if hits_labels and margin < MARGIN:
         near = sorted(scores.items(), key=lambda kv: -kv[1])[:2]
         return Decision(action="ASK", scores=scores,
-                        question=pick_question(scores, turn),
+                        question=pick_question(scores, turn, asked),
                         turn=turn, evidence_tokens=n_tok,
                         crisis_earlier=crisis_flagged,
                         reason=f"near-tie {near[0][0]}/{near[1][0]} "
@@ -468,7 +495,7 @@ def decide(accumulated: str, latest: str, turn: int,
         reason = "insufficient evidence"
 
     return Decision(action="ASK", scores=scores,
-                    question=pick_question(scores, turn),
+                    question=pick_question(scores, turn, asked),
                     question_optional=not has_signal,
                     turn=turn, evidence_tokens=n_tok,
                     crisis_earlier=crisis_flagged,

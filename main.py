@@ -172,8 +172,14 @@ async def chat(req: ChatRequest, request: Request,
     sess.history.append({"role": "user", "content": text})
     d = decision_layer.decide(accumulated=sess.accumulated, latest=text,
                               turn=sess.turn_count, prev_turn=prev_turn,
-                              prev_fired=prev_fired, crisis_flagged=crisis_before)
+                              prev_fired=prev_fired, crisis_flagged=crisis_before,
+                              asked=sess.asked_questions)
     sess.last_action = d.action
+    # Record the question BEFORE the LLM rewords it. The bank entry is what
+    # pick_question matches against, so the reworded version would not exclude
+    # anything on the next turn.
+    if d.question:
+        sess.asked_questions.append(d.question)
     if d.action == "SAFETY":
         sess.crisis_flagged = True
     elif d.action == "RESOLVE":

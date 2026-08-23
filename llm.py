@@ -196,6 +196,17 @@ def _fallback(state: dict, question: str | None) -> str:
     return text
 
 
+class TruncatedReply(RuntimeError):
+    """
+    The model hit the completion ceiling before finishing, or returned nothing.
+
+    Raised rather than returned so respond()'s existing except-branch sends the
+    hand-written template instead. A reply that stops mid-sentence is worse than
+    a template, and this is the one place a user is most likely to be reading
+    carefully -- the turn where they said yes to help.
+    """
+
+
 def _call(system: str, user: str, timeout: int = 30) -> str:
     body = json.dumps({
         "model": LLM_MODEL,
@@ -203,12 +214,37 @@ def _call(system: str, user: str, timeout: int = 30) -> str:
                      {"role": "user", "content": user}],
         "max_tokens": 400,
         "temperature": 0.7,
+        # gpt-oss bills reasoning tokens as completion tokens. At the default
+        # effort the longest reply in a conversation -- the practical-tips turn
+        # -- spent the entire 400-token ceiling reasoning and was delivered cut
+        # off at "keeping a simple sleep routine by". Observed live, not
+        # theorised.
+        #
+        # This layer is only phrasing a decision the deterministic layer already
+        # made. It has nothing to reason about, so "low" costs nothing in
+        # quality and returns the budget to the actual sentence. It also roughly
+        # halves output spend, which bills at 5x the input rate.
+        "reasoning_effort": "low",
     }).encode()
     h = dict(HEADERS)
     h["Authorization"] = f"Bearer {_get_api_key()}"
     req = urllib.request.Request(GROQ_URL, data=body, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())["choices"][0]["message"]["content"].strip()
+        payload = json.loads(r.read())
+
+    choice = payload["choices"][0]
+    text = (choice.get("message", {}).get("content") or "").strip()
+    usage = payload.get("usage", {})
+
+    # Nothing downstream inspected finish_reason before, so a truncated reply
+    # was passed to the user verbatim, half-sentence and all.
+    if choice.get("finish_reason") == "length":
+        raise TruncatedReply(
+            f"hit max_tokens (completion={usage.get('completion_tokens')})")
+    if not text:
+        raise TruncatedReply(
+            f"empty content (completion={usage.get('completion_tokens')})")
+    return text
 
 
 def respond(state: dict, history: list, question: str | None = None) -> str:
