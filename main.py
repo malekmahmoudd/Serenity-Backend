@@ -211,7 +211,7 @@ async def reset(req: ResetRequest):
 def root():
     return {"service": "Serenity API", "docs": "/docs", "health": "/health"}
 
-# Startup block for Railway
+# Startup block: binds to $PORT if the platform sets it, else 8000
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
