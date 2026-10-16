@@ -1,45 +1,34 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
----
-title: Serenity API
-emoji: 🌿
-colorFrom: green
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # Serenity — backend API
 
 FastAPI service: LSTM classifier (ONNX) + rule-based crisis detection +
 Groq-backed conversational replies. See `main.py` for the request flow and
 `ESCALATION_POLICY.md` for the safety design this API implements.
 
-Frontend lives separately (Next.js on Vercel) and calls this Space's URL.
+The frontend lives separately (Next.js on Vercel) and calls this service's URL.
+
+## Deployment (Dockhost)
+
+The service is a single Docker container built from the `Dockerfile` in this
+repo.
+
+- Container port: `8000` (the app also honours `$PORT` if the platform sets it)
+- Health check path: `/health`
+- Instances: run exactly **one**. Chat sessions and rate limits are held in
+  memory, so multiple replicas would each have their own copy.
 
 ## Configuration
 
-Set these under **Settings → Variables and secrets** on this Space — never in
-the repo:
+Set these as environment variables on the hosting platform — never in the repo:
 
 | name | required | notes |
 |---|---|---|
-| `DATABASE_URL` | yes | Postgres connection string (Neon, etc.) |
-| `SERENITY_ENC_KEY` | yes | `Fernet.generate_key()` -- see `crypto.py` |
+| `DATABASE_URL` | yes | Postgres connection string, e.g. `postgresql+psycopg://user:pw@host/db` |
+| `SERENITY_ENC_KEY` | yes | `Fernet.generate_key()` -- see `crypto.py`. Keep the same key when moving hosts, or stored history becomes unreadable |
 | `SERENITY_JWT_SECRET` | yes | any long random string |
 | `GROQ_API_KEY` | yes | groq.com |
 | `SERENITY_ADMIN_TOKEN` | yes | protects `/dashboard` and `/metrics` |
 | `SERENITY_ENV` | yes | set to `prod` |
-| `ALLOWED_ORIGINS` | yes | your Vercel domain, comma-separated if more than one |
+| `ALLOWED_ORIGINS` | yes | your frontend domain, comma-separated if more than one |
 
-Health check: `/health`. This Space's code is public by default -- nothing in
-it is a secret (see `text_cleaning.py` etc. for the reasoning behind every
-design choice); the actual secrets above are the only things that must never
-appear in the repo itself.
-=======
-# Serenity
->>>>>>> 4db25003a65b62f54b4f0cb2a950aac078c6e696
-=======
-# Serenity-Backend
->>>>>>> 662b00fe660081e66ea3edbf604e8e3399c96835
+In `prod` the app refuses to start if a required value is missing, if
+`DATABASE_URL` is SQLite, or if `ALLOWED_ORIGINS` contains `*`.

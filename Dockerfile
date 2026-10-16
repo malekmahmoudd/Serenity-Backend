@@ -26,7 +26,7 @@ COPY --chown=appuser artifacts/crisis_patterns.json artifacts/crisis_patterns.js
 
 USER appuser
 
-# Railway will inject $PORT, so expose a generic port
+# The platform may inject $PORT; the app falls back to 8000
 EXPOSE 8000
 
 # Healthcheck against /health
@@ -34,5 +34,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s \
     CMD python -c "import urllib.request, os; \
     urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",8000)}/health', timeout=5)" || exit 1
 
-# Start FastAPI app with uvicorn, binding to $PORT
+# Start the FastAPI app with uvicorn, binding to $PORT (default 8000)
 CMD ["python", "main.py"]
